@@ -5,7 +5,7 @@ const { connect } = require('puppeteer-real-browser')
 const clickAndWaitPlugin = require('puppeteer-extra-plugin-click-and-wait')()
 const { HttpsProxyAgent } = require('https-proxy-agent')
 const { SocksProxyAgent } = require('socks-proxy-agent')
-
+const { showBanner } = require('./banner')
 const { config } = require('./config')
 
 const Colors = {
@@ -21,7 +21,6 @@ const Colors = {
 }
 
 async function performLogin(account) {
-  console.debug('performLogin() ')
   let browser, page
   try {
     const connection = await connect({
@@ -50,7 +49,6 @@ async function performLogin(account) {
 
     // Scroll to the bottom of the page
     await page.evaluate(() => {
-      // Scroll to the bottom by setting the scroll position to the maximum height
       window.scrollTo(0, document.body.scrollHeight)
     })
 
@@ -59,17 +57,12 @@ async function performLogin(account) {
     // Listen for network responses
     page.on('response', async (response) => {
       const url = response.url()
-
-      // Check if the response is for the specific API call
       if (
         url ===
         'https://ext-api.dawninternet.com/chromeapi/dawn/v1/appid/getappid?app_v=1.1.9'
       ) {
         try {
-          // Get the JSON response data
           const data = await response.json()
-
-          // Log or process the API response data
           appid = data.data.appid
           console.log('App ID:', appid)
         } catch (error) {
@@ -81,17 +74,7 @@ async function performLogin(account) {
     console.log(
       `${Colors.Neon}]> ${Colors.Gold}Waiting for Cloudflare Turnstile token...${Colors.RESET}`
     )
-    // Set up an Axios interceptor to log the request
-    axios.interceptors.request.use((request) => {
-      console.log('Request sent:', request)
-      return request
-    })
 
-    // Set up an Axios interceptor to log the response
-    axios.interceptors.response.use((response) => {
-      console.log('Response received:', response)
-      return response
-    })
     const tokenHandle = await page.waitForFunction(
       () => {
         const input = document.querySelector(
@@ -103,139 +86,56 @@ async function performLogin(account) {
     )
     const token = await tokenHandle.jsonValue()
 
-    console.debug('TOKEN VALUE: ', token)
-
     if (!token) {
       console.error(
-        `${Colors.Neon}]> ${
-          Colors.Red
-        }Token not found on the page for account: ${Colors.Teal}${maskEmail(
-          account.email
-        )}${Colors.RESET}`
+        `${Colors.Neon}]> ${Colors.Red}Token not found for account: ${
+          Colors.Teal
+        }${maskEmail(account.email)}${Colors.RESET}`
       )
       throw new Error(
         `${Colors.Neon}]> ${Colors.Red}Failed to retrieve turnstile token${Colors.RESET}`
       )
     }
 
-    // Request payload
     const payload = {
-      firstname: 'luc.ky.t.td1.6@gmail.com',
+      firstname: account.email,
       lastname: 'a',
-      email: 'luc.ky.t.td1.6@gmail.com',
+      email: account.email,
       mobile: '',
       country: 'VN',
-      password: 'Sunflower160195!',
+      password: account.password,
       referralCode: 'nz2bf2y6',
       token: token,
       isMarketing: true,
       browserName: 'chrome'
     }
 
-    console.debug('PAYLOAD: ', payload)
 
+    // You can uncomment and use the API requests here when you're ready to integrate
     // const validateRegister = await axios.post(
     //   `https://ext-api.dawninternet.com/chromeapi/dawn/v2/dashboard/user/validate-register?appid=${appid}`,
     //   payload,
-    //   {
-    //     headers: config.headers,
-    //     timeout: 30000
-    //   }
-    // )
+    //   { headers: config.headers, timeout: 30000 }
+    // );
+    // const loginResponse = await axios.post('https://dashboard.dawninternet.com/signup', payload, { headers: config.headers, timeout: 30000 });
 
-    // await sleep(5 * 60 * 1000)
-
-    // console.log('Registration Validation Response:', validateRegister.data)
-
-    // const loginResponse = await axios.post(
-    //   'https://dashboard.dawninternet.com/signup',
-    //   payload,
-    //   {
-    //     headers: {
-    //       'x-api-key': config.ApiKey,
-    //       'Content-Type': 'application/json',
-    //       'user-agent': config.Useragent
-    //     },
-    //     timeout: 30000
-    //   }
-    // )
-
-    // const access_token = loginResponse.data && loginResponse.data.access_token
-    // if (access_token) {
-    //   console.log(
-    //     `${Colors.Neon}]> ${Colors.Green}Login successful for ${
-    //       Colors.Teal
-    //     }${maskEmail(account.email)}${Colors.RESET}`
-    //   )
-    //   console.log(
-    //     `${Colors.Neon}]> ${Colors.RESET}cf-turnstile-response token: ${Colors.Dim}${Colors.Teal}${token}${Colors.RESET}`
-    //   )
-    //   console.log(
-    //     `${Colors.Neon}]> ${Colors.RESET}token-Login-response: ${Colors.Dim}${Colors.Blue}${access_token}${Colors.RESET}`
-    //   )
-    //   await saveAccountData({ email: account.email, access_token })
-    // } else {
-    //   console.error(
-    //     `${Colors.Neon}]> ${Colors.Red}Login failed for ${
-    //       Colors.Teal
-    //     }${maskEmail(account.email)}${
-    //       Colors.Red
-    //     } due to missing access token in response.${Colors.RESET}`
-    //   )
-    //   throw new Error(
-    //     `${Colors.Neon}]> ${Colors.Red}Missing access_token in response ${Colors.RESET}`
-    //   )
-    // }
-
-    // return { email: account.email, access_token }
+    console.log(
+      `${Colors.Green}]> ${Colors.Teal}Create successful for ${maskEmail(
+        account.email
+      )}${Colors.RESET}`
+    )
+    // Perform further actions like saving the login token etc.
   } catch (error) {
     console.error(
       `An error occurred during login for ${maskEmail(account.email)}:`,
       error.message
     )
-    await sleep(5 * 60 * 1000)
     throw error
   } finally {
     if (browser) {
-      // await browser.close()
+      await browser.close()
     }
   }
-}
-
-function CoderMark() {
-  console.log(`
-  ╭━━━╮╱╱╱╱╱╱╱╱╱╱╱╱╱╭━━━┳╮
-  ┃╭━━╯╱╱╱╱╱╱╱╱╱╱╱╱╱┃╭━━┫┃${Colors.Green}
-  ┃╰━━┳╮╭┳━┳━━┳━━┳━╮┃╰━━┫┃╭╮╱╭┳━╮╭━╮
-  ┃╭━━┫┃┃┃╭┫╭╮┃╭╮┃╭╮┫╭━━┫┃┃┃╱┃┃╭╮┫╭╮╮${Colors.Blue}
-  ┃┃╱╱┃╰╯┃┃┃╰╯┃╰╯┃┃┃┃┃╱╱┃╰┫╰━╯┃┃┃┃┃┃┃
-  ╰╯╱╱╰━━┻╯╰━╯┣━━┻╯╰┻╯╱╱╰━┻━╮╭┻╯╰┻╯╰╯${Colors.RESET}
-  ╱╱╱╱╱╱╱╱╱╱╱┃┃╱╱╱╱╱╱╱╱╱╱╭━╯┃${Colors.Blue}{${Colors.Neon}cmalf${Colors.Blue}}${
-    Colors.RESET
-  }
-  ╱╱╱╱╱╱╱╱╱╱╱╰╯╱╱╱╱╱╱╱╱╱╱╰━━╯
-  \n${Colors.RESET}Teneo Auto Login Bot ${Colors.Blue}{ ${Colors.Neon}JS${
-    Colors.Blue
-  } }${Colors.RESET}
-      \n${Colors.Green}${'―'.repeat(50)}
-      \n${Colors.Gold}[+]${Colors.RESET} DM : ${
-    Colors.Teal
-  }https://t.me/furqonflynn
-      \n${Colors.Gold}[+]${Colors.RESET} GH : ${
-    Colors.Teal
-  }https://github.com/cmalf/
-      \n${Colors.Green}${'―'.repeat(50)}
-      \n${Colors.Gold}]-> ${Colors.Blue}{ ${Colors.RESET}TENEO Extension${
-    Colors.Neon
-  } v2.0.0${Colors.Blue} } ${Colors.RESET}
-      \n${Colors.Gold}]-> ${Colors.Blue}{ ${Colors.RESET}Turnstile CF Bypass${
-    Colors.Neon
-  } Free${Colors.Blue} } ${Colors.RESET}
-      \n${Colors.Gold}]-> ${Colors.Blue}{ ${Colors.RESET}BOT${
-    Colors.Neon
-  } v1.0.0${Colors.Blue} } ${Colors.RESET}
-      \n${Colors.Green}${'―'.repeat(50)}
-      `)
 }
 
 const maskEmail = (email) => {
@@ -244,7 +144,6 @@ const maskEmail = (email) => {
   }
 
   const [username, domain] = email.split('@')
-
   if (!username || !domain) {
     throw new Error('Invalid email format')
   }
@@ -257,22 +156,44 @@ const maskEmail = (email) => {
   return `${maskedUsername}@${maskedDomain}`
 }
 
-async function main() {
-  await performLogin({
-    email: 'trantiendung1601@gmail.com',
-    password: 'Tiendung160195!'
+async function loadAccounts(filePath) {
+  return new Promise((resolve, reject) => {
+    fs.readFile(filePath, 'utf-8', (err, data) => {
+      if (err) {
+        reject(err)
+      }
+      const accounts = data
+        .split('\n')
+        .map((line) => {
+          const [email, password] = line.split(':')
+          return { email, password }
+        })
+        .filter((account) => account.email && account.password)
+      resolve(accounts)
+    })
   })
 }
 
-console.clear()
-CoderMark()
-main().catch((error) => {
-  console.error(
-    `${Colors.Gold}An unexpected error occurred in main(). ${Colors.Red}${error.message}${Colors.RESET}`
-  )
-  process.exit(1)
-})
+async function main() {
+  try {
+    const accounts = await loadAccounts(path.join(__dirname, 'accounts.txt'))
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+    for (const account of accounts) {
+      console.log(
+        `${Colors.Blue}]> ${Colors.Green}Creating in account: ${maskEmail(
+          account.email
+        )}${Colors.RESET}`
+      )
+      await performLogin(account)
+    }
+  } catch (error) {
+    console.error(
+      `${Colors.Gold}An unexpected error occurred in main(). ${Colors.Red}${error.message}${Colors.RESET}`
+    )
+    process.exit(1)
+  }
 }
+
+console.clear()
+showBanner()
+main()
